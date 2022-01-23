@@ -186,9 +186,10 @@ open class MethodTracer(
             zipOutputStream = ZipOutputStream(FileOutputStream(output))
             zipFile = ZipFile(input)
             val enumeration = zipFile.entries()
+            var zipEntry: ZipEntry? = null
             while (enumeration.hasMoreElements()) {
                 try {
-                    val zipEntry = enumeration.nextElement()
+                    zipEntry = enumeration.nextElement()
                     val zipEntryName = zipEntry.name
                     if (zipEntryName.endsWith(".class")) {
                         val inputStream = zipFile.getInputStream(zipEntry)
@@ -215,9 +216,14 @@ open class MethodTracer(
                     RheaLog.e(
                         TAG,
                         "Failed to trace class:%s, e:%s",
-                        enumeration.nextElement().name,
+                        if (zipEntry == null) "null" else zipEntry.name,
                         e
                     )
+                    if (zipEntry != null) {
+                        FileUtil.addZipEntry(zipOutputStream, zipEntry, zipFile.getInputStream(zipEntry))
+                    } else {
+                        throw RuntimeException("zipEntry == null")
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -621,6 +627,34 @@ class TraceMethodAdapter(
                 "(Z)V",
                 false
             )
+
+            mv.visitLdcInsn(traceRuntime.enableIO)
+            mv.visitMethodInsn(
+                INVOKESTATIC,
+                RheaConstants.CLASS_RuntimeConfig,
+                "setEnableIO",
+                "(Z)V",
+                false
+            )
+
+            mv.visitLdcInsn(traceRuntime.enableClassLoad)
+            mv.visitMethodInsn(
+                INVOKESTATIC,
+                RheaConstants.CLASS_RuntimeConfig,
+                "setEnableClassLoad",
+                "(Z)V",
+                false
+            )
+
+            mv.visitLdcInsn(traceRuntime.enableMemory)
+            mv.visitMethodInsn(
+                INVOKESTATIC,
+                RheaConstants.CLASS_RuntimeConfig,
+                "setEnableMemory",
+                "(Z)V",
+                false
+            )
+
             if (traceRuntime.atraceBufferSize != null) {
                 var atraceBufferSize: Long = 0
                 try {
